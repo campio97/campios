@@ -84,5 +84,5 @@ systemctl enable podman.socket
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 # Pulizia
--y clean all
+$DNF -y clean all
 rm -rf /var/cache/dnf /var/lib/dnf /tmp/*
