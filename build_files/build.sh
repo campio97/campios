@@ -48,19 +48,31 @@ $DNF install -y \
   dms-greeter \
   --allowerasing
 
-# greetd + dms-greeter + niri
+# ==========================================
+# CONFIGURAZIONE GREETD E NIRI CORRETTA
+# ==========================================
+
+# 1. Assicuriamoci che l'utente esista e abbia i permessi GPU
+useradd -M -G video,render greeter || true
+usermod -aG video,render greeter || true
+
+# 2. Creiamo la cartella e il file di configurazione
 mkdir -p /etc/greetd/
 
 cat > /etc/greetd/config.toml << 'EOF'
 [terminal]
-vt = 1
+# Cambiamo vt da 1 a 7 per non litigare con Plymouth durante l'avvio
+vt = 7
 
 [default_session]
 user = "greeter"
 command = "dms-greeter --command niri"
 EOF
 
-# Usa greetd come display manager
+# 3. Ripristiniamo la sicurezza SELinux per evitare blocchi
+chcon -t etc_t /etc/greetd/config.toml || true
+
+# 4. Impostiamo i servizi
 systemctl disable gdm.service || true
 systemctl disable sddm.service || true
 systemctl disable cosmic-greeter.service || true
