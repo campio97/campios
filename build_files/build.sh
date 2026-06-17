@@ -1,5 +1,5 @@
 #!/bin/bash
-
+DNF="/usr/bin/dnf5.real"
 set -ouex pipefail
 
 echo "Configuro CampiOS..."
@@ -9,7 +9,7 @@ grep -q '^max_parallel_downloads=' /etc/dnf/dnf.conf || \
   sed -i '/^\[main\]/a max_parallel_downloads=10' /etc/dnf/dnf.conf
 
 # Pacchetti base di sistema
-dnf5 install -y \
+$DNF install -y \
   git \
   curl \
   wget \
@@ -23,7 +23,7 @@ dnf5 install -y \
   sysstat
 
 # App utente essenziali
-dnf5 install -y \
+install -y \
   nautilus \
   kitty \
   gnome-terminal \
@@ -33,7 +33,7 @@ dnf5 install -y \
   mpv
 
 # niri
-dnf5 install -y \
+$DNF install -y \
   niri \
   bibata-cursor-theme
 
@@ -41,7 +41,7 @@ dnf5 install -y \
 curl --output-dir "/etc/yum.repos.d/" \
   --remote-name "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
 
-dnf5 install -y \
+install -y \
   quickshell \
   dms \
   greetd \
@@ -84,5 +84,5 @@ systemctl enable podman.socket
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 # Pulizia
-dnf5 -y clean all
+-y clean all
 rm -rf /var/cache/dnf /var/lib/dnf /tmp/*
