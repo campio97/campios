@@ -41,7 +41,7 @@ $DNF install -y \
 curl --output-dir "/etc/yum.repos.d/" \
   --remote-name "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
 
-install -y \
+$DNF install -y \
   quickshell \
   dms \
   greetd \
