@@ -49,34 +49,33 @@ $DNF install -y \
   --allowerasing
 
 # ==========================================
-# CONFIGURAZIONE GREETD E NIRI CORRETTA
+# CONFIGURAZIONE GREETD E DMS-GREETER
 # ==========================================
 
-# 1. Assicuriamoci che l'utente esista e abbia i permessi GPU
-useradd -M -G video,render greeter || true
-usermod -aG video,render greeter || true
+# 1. Creiamo i gruppi e l'utente greeter
+getent group video || groupadd -r video
+getent group render || groupadd -r render
+id -u greeter &>/dev/null || useradd -r -M -G video,render greeter
 
-# 2. Creiamo la cartella e il file di configurazione
+# 2. FIX PER DMS-GREETER: Creiamo la cartella di cache mancante!
+mkdir -p /var/cache/dms-greeter
+chown greeter:greeter /var/cache/dms-greeter
+
+# 3. Creiamo la configurazione di greetd
 mkdir -p /etc/greetd/
-
 cat > /etc/greetd/config.toml << 'EOF'
 [terminal]
-# Cambiamo vt da 1 a 7 per non litigare con Plymouth durante l'avvio
-vt = 7
+vt = 1
 
 [default_session]
 user = "greeter"
 command = "dms-greeter --command niri"
 EOF
 
-# 3. Ripristiniamo la sicurezza SELinux per evitare blocchi
-chcon -t etc_t /etc/greetd/config.toml || true
-
-# 4. Impostiamo i servizi
-systemctl disable gdm.service || true
-systemctl disable sddm.service || true
-systemctl disable cosmic-greeter.service || true
-systemctl enable greetd.service
+# 4. Impostiamo Greetd come Display Manager predefinito (forzato)
+rm -f /etc/systemd/system/display-manager.service
+ln -s /usr/lib/systemd/system/greetd.service /etc/systemd/system/display-manager.service
+systemctl enable --force greetd.service
 
 # Avvia DMS nella sessione grafica dei nuovi utenti
 mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
@@ -97,4 +96,5 @@ glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 # Pulizia
 $DNF -y clean all
-rm -rf /var/cache/dnf /var/lib/dnf /tmp/*
+rm -rf /run/dnf
+rm -rf /var/lib/dnf
