@@ -23,7 +23,7 @@ $DNF install -y \
   sysstat
 
 # App utente essenziali
-install -y \
+$DNF install -y \
   nautilus \
   kitty \
   gnome-terminal \
