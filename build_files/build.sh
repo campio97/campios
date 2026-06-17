@@ -2,49 +2,87 @@
 
 set -ouex pipefail
 
-echo "Installazione ambienti desktop..."
+echo "Configuro CampiOS..."
 
-# 1. Installa Niri e il suo ecosistema essenziale
-rpm-ostree install \
-    niri \
-    waybar \
-    fuzzel \
-    swaybg \
-    mako
+# DNF più veloce
+grep -q '^max_parallel_downloads=' /etc/dnf/dnf.conf || \
+  sed -i '/^\[main\]/a max_parallel_downloads=10' /etc/dnf/dnf.conf
 
-# Spiegazione dei pacchetti:
-# niri   -> Il compositor (il motore grafico e gestore finestre)
-# waybar -> La barra di stato in alto (orologio, batteria, ecc.)
-# fuzzel -> Il lanciatore di applicazioni (tipo Spotlight su Mac)
-# swaybg -> Per impostare l'immagine di sfondo
-# mako   -> Il demone per le notifiche a comparsa
+# Pacchetti base di sistema
+dnf5 install -y \
+  git \
+  curl \
+  wget \
+  just \
+  podman \
+  distrobox \
+  flatpak \
+  seahorse \
+  lxpolkit \
+  iotop \
+  sysstat
 
-# 2. Installa COSMIC e il suo gestore di accessi (Opzionale, se li vuoi entrambi)
-rpm-ostree install \
-    cosmic-desktop \
-    cosmic-greeter
+# App utente essenziali
+dnf5 install -y \
+  nautilus \
+  kitty \
+  gnome-terminal \
+  gnome-system-monitor \
+  gnome-calculator \
+  loupe \
+  mpv
 
-# 3. Imposta il gestore di login
+# niri
+dnf5 install -y \
+  niri \
+  bibata-cursor-theme
+
+# DMS / DankMaterialShell repo
+curl --output-dir "/etc/yum.repos.d/" \
+  --remote-name "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
+
+dnf5 install -y \
+  quickshell \
+  dms \
+  greetd \
+  dms-greeter \
+  --allowerasing
+
+# greetd + dms-greeter + niri
+mkdir -p /etc/greetd/
+
+cat > /etc/greetd/config.toml << 'EOF'
+[terminal]
+vt = 1
+
+[default_session]
+user = "greeter"
+command = "dms-greeter --command niri"
+EOF
+
+# Usa greetd come display manager
 systemctl disable gdm.service || true
-systemctl enable cosmic-greeter.service
+systemctl disable sddm.service || true
+systemctl disable cosmic-greeter.service || true
+systemctl enable greetd.service
 
-### Install packages
+# Avvia DMS nella sessione grafica dei nuovi utenti
+mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
+ln -sf /usr/lib/systemd/user/dms.service \
+  /etc/skel/.config/systemd/user/graphical-session.target.wants/dms.service
 
-# Packages can be installed from any enabled yum repo on the image.
-# RPMfusion repos are available by default in ublue main images
-# List of rpmfusion packages can be found here:
-# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/43/x86_64/repoview/index.html&protocol=https&redirect=1
+# Config niri predefinita, se presente nel repo
+mkdir -p /etc/skel/.config/niri
+if [[ -f /ctx/dot_config/niri/config.kdl ]]; then
+  cp -f /ctx/dot_config/niri/config.kdl /etc/skel/.config/niri/config.kdl
+fi
 
-# this installs a package from fedora repos
-#dnf5 install -y tmux 
+# Podman socket
+systemctl enable podman.socket
 
-# Use a COPR Example:
-#
-# dnf5 -y copr enable ublue-os/staging
-# dnf5 -y install package
-# Disable COPRs so they don't end up enabled on the final image:
-# dnf5 -y copr disable ublue-os/staging
+# Schemi GLib
+glib-compile-schemas /usr/share/glib-2.0/schemas/
 
-#### Example for enabling a System Unit File
-
-#systemctl enable podman.socket
+# Pulizia
+dnf5 -y clean all
+rm -rf /var/cache/dnf /var/lib/dnf /tmp/*
