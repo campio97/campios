@@ -70,7 +70,6 @@ $DNF install -y \
 
 # ==========================================================
 # Greetd come display manager
-# Versione allineata a morros
 # ==========================================================
 
 mkdir -p /etc/greetd/
