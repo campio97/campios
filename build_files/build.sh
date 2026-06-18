@@ -5,7 +5,11 @@ set -ouex pipefail
 echo "Configuro CampiOS..."
 
 # Usa dnf in modo compatibile con la base
-DNF="$(command -v dnf5 || command -v dnf)"
+if [[ -x /usr/bin/dnf5.real ]]; then
+  DNF="/usr/bin/dnf5.real"
+else
+  DNF="$(command -v dnf5 || command -v dnf)"
+fi
 
 # DNF più veloce
 grep -q '^max_parallel_downloads=' /etc/dnf/dnf.conf || \
