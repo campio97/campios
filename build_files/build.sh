@@ -1,14 +1,20 @@
 #!/bin/bash
-DNF="/usr/bin/dnf5.real"
+
 set -ouex pipefail
 
 echo "Configuro CampiOS..."
+
+# Usa dnf in modo compatibile con la base
+DNF="$(command -v dnf5 || command -v dnf)"
 
 # DNF più veloce
 grep -q '^max_parallel_downloads=' /etc/dnf/dnf.conf || \
   sed -i '/^\[main\]/a max_parallel_downloads=10' /etc/dnf/dnf.conf
 
-# Pacchetti base di sistema
+# ==========================================================
+# Pacchetti base scelti da Config 2
+# ==========================================================
+
 $DNF install -y \
   git \
   curl \
@@ -22,7 +28,7 @@ $DNF install -y \
   iotop \
   sysstat
 
-# App utente essenziali
+# App utente scelte da Config 2
 $DNF install -y \
   nautilus \
   kitty \
@@ -32,14 +38,20 @@ $DNF install -y \
   loupe \
   mpv
 
-# niri
+# ==========================================================
+# Niri
+# ==========================================================
+
 $DNF install -y \
   niri \
   bibata-cursor-theme
 
-# DMS / DankMaterialShell repo
-curl --output-dir "/etc/yum.repos.d/" \
-  --remote-name "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
+# ==========================================================
+# Dank Material Shell / DMS Greeter
+# ==========================================================
+
+curl -Lo /etc/yum.repos.d/avengemedia-dms.repo \
+  "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
 
 $DNF install -y \
   quickshell \
@@ -48,47 +60,60 @@ $DNF install -y \
   dms-greeter \
   --allowerasing
 
-# ==========================================
-# CONFIGURAZIONE GREETD E DMS-GREETER
-# ==========================================
+# Assicura user/directory del greeter anche su immagini bootc/immutabili
+systemd-sysusers /usr/lib/sysusers.d/dms-greeter.conf || true
+systemd-tmpfiles --create /usr/lib/tmpfiles.d/dms-greeter.conf || true
 
-# 1. Creiamo i gruppi e l'utente greeter
-getent group video || groupadd -r video
-getent group render || groupadd -r render
-id -u greeter &>/dev/null || useradd -r -M -G video,render greeter
+# Permessi cache greeter
+install -d -m 0750 -o greeter -g greeter /var/cache/dms-greeter
+install -d -m 0755 -o greeter -g greeter /var/lib/greeter
 
-# 2. FIX PER DMS-GREETER: Creiamo la cartella di cache mancante!
-mkdir -p /var/cache/dms-greeter
-chown greeter:greeter /var/cache/dms-greeter
+# Gruppi opzionali utili per accesso grafico/render
+getent group video >/dev/null || groupadd -r video
+getent group render >/dev/null || groupadd -r render
+usermod -aG video,render greeter || true
 
-# 3. Creiamo la configurazione di greetd
-mkdir -p /etc/greetd/
+# ==========================================================
+# Greetd come display manager
+# ==========================================================
+
+mkdir -p /etc/greetd
+
 cat > /etc/greetd/config.toml << 'EOF'
 [terminal]
 vt = 1
 
 [default_session]
 user = "greeter"
-command = "dms-greeter --command niri"
+command = "/usr/bin/dms-greeter --command niri"
 EOF
 
-# 4. Impostiamo Greetd come Display Manager predefinito (forzato)
 rm -f /etc/systemd/system/display-manager.service
-ln -s /usr/lib/systemd/system/greetd.service /etc/systemd/system/display-manager.service
-systemctl enable --force greetd.service
+ln -sf /usr/lib/systemd/system/greetd.service /etc/systemd/system/display-manager.service
 
-# Avvia DMS nella sessione grafica dei nuovi utenti
+systemctl enable --force greetd.service
+systemctl set-default graphical.target
+
+# ==========================================================
+# Avvio DMS nella sessione dei nuovi utenti
+# ==========================================================
+
 mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
+
 ln -sf /usr/lib/systemd/user/dms.service \
   /etc/skel/.config/systemd/user/graphical-session.target.wants/dms.service
 
-# Config niri predefinita, se presente nel repo
+# Config Niri predefinita
 mkdir -p /etc/skel/.config/niri
+
 if [[ -f /ctx/dot_config/niri/config.kdl ]]; then
   cp -f /ctx/dot_config/niri/config.kdl /etc/skel/.config/niri/config.kdl
 fi
 
-# Podman socket
+# ==========================================================
+# Podman
+# ==========================================================
+
 systemctl enable podman.socket
 
 # Schemi GLib
@@ -97,4 +122,5 @@ glib-compile-schemas /usr/share/glib-2.0/schemas/
 # Pulizia
 $DNF -y clean all
 rm -rf /run/dnf
+rm -rf /run/selinux-policy
 rm -rf /var/lib/dnf
