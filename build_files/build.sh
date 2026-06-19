@@ -74,6 +74,15 @@ $DNF install -y \
 
 mkdir -p /etc/greetd/
 
+# Assicura che l'utente usato da greetd esista
+if ! getent passwd greeter >/dev/null; then
+  useradd --system \
+    --home-dir /var/lib/greeter \
+    --create-home \
+    --shell /usr/sbin/nologin \
+    greeter
+fi
+
 cat > /etc/greetd/config.toml << EOF
 [terminal]
 vt = 1
