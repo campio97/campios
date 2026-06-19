@@ -74,14 +74,17 @@ $DNF install -y \
 
 mkdir -p /etc/greetd/
 
-# Assicura che l'utente usato da greetd esista
-if ! getent passwd greeter >/dev/null; then
-  useradd --system \
-    --home-dir /var/lib/greeter \
-    --create-home \
-    --shell /usr/sbin/nologin \
-    greeter
-fi
+# ==========================================================
+# Utente greeter per greetd / dms-greeter
+# ==========================================================
+
+cat > /usr/lib/sysusers.d/campios-greeter.conf <<'EOF'
+u greeter - "System Greeter" /var/lib/greeter /bin/bash
+EOF
+
+cat > /usr/lib/tmpfiles.d/campios-greeter.conf <<'EOF'
+d /var/lib/greeter 0755 greeter greeter -
+EOF
 
 cat > /etc/greetd/config.toml << EOF
 [terminal]
