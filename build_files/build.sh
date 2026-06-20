@@ -208,13 +208,12 @@ DeviceTimeout=8
 EOF
 
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
-  plymouth-set-default-theme campios || true
-fi
+  plymouth-set-default-theme campios
 
 # Serve perché Plymouth viene caricato presto nel boot.
 # Se dracut è disponibile nella base, rigenera l'initramfs.
 if command -v dracut >/dev/null 2>&1; then
-  dracut --regenerate-all --force || true
+  dracut --regenerate-all --force
 fi
 
 # ==========================================================
