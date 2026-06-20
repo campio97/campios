@@ -209,6 +209,7 @@ EOF
 
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
   plymouth-set-default-theme campios
+fi
 
 # Serve perché Plymouth viene caricato presto nel boot.
 # Se dracut è disponibile nella base, rigenera l'initramfs.
