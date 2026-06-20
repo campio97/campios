@@ -186,6 +186,9 @@ install -m 0644 /ctx/etc/containers/policy.json /etc/containers/policy.json
 
 systemctl enable podman.socket
 
+# Remove waybar
+$DNF -y remove waybar || true
+
 # ==========================================================
 # Schemi GLib
 # ==========================================================
