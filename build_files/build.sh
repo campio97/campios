@@ -192,7 +192,7 @@ $DNF -y remove waybar || true
 # Plymouth CampiOS boot logo
 # ==========================================================
 
-$DNF install -y plymouth plymouth-plugin-script || true
+$DNF install -y plymouth plymouth-plugin-script
 
 install -d /usr/share/plymouth/themes/campios
 install -m 0644 /ctx/plymouth/campios/campios.plymouth /usr/share/plymouth/themes/campios/
@@ -206,15 +206,18 @@ ShowDelay=0
 DeviceTimeout=8
 EOF
 
-if command -v plymouth-set-default-theme >/dev/null 2>&1; then
-  plymouth-set-default-theme campios
-fi
+install -d /etc/dracut.conf.d
 
-# Serve perché Plymouth viene caricato presto nel boot.
-# Se dracut è disponibile nella base, rigenera l'initramfs.
-if command -v dracut >/dev/null 2>&1; then
-  dracut --regenerate-all --force
-fi
+cat > /etc/dracut.conf.d/99-campios-plymouth.conf <<'EOF'
+add_dracutmodules+=" plymouth "
+install_items+=" /etc/plymouth/plymouthd.conf "
+install_items+=" /usr/share/plymouth/themes/campios/campios.plymouth "
+install_items+=" /usr/share/plymouth/themes/campios/campios.script "
+install_items+=" /usr/share/plymouth/themes/campios/logo.png "
+EOF
+
+plymouth-set-default-theme campios
+dracut --regenerate-all --force
 
 # ==========================================================
 # Default Flatpaks
