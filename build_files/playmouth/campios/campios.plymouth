@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=CampiOS
+Description=CampiOS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/campios
+ScriptFile=/usr/share/plymouth/themes/campios/campios.script
