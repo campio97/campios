@@ -110,6 +110,70 @@ mkdir -p /etc/skel/.config/niri/
 cp -rf /ctx/dot_config/niri/config.kdl /etc/skel/.config/niri/
 
 # ==========================================================
+# Config CampiOS gestita per utenti esistenti
+# ==========================================================
+
+install -d /usr/share/campios/niri
+install -m 0644 /ctx/dot_config/niri/config.kdl /usr/share/campios/niri/config.kdl
+
+cat > /usr/libexec/campios-sync-user-configs <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+SRC="/usr/share/campios/niri/config.kdl"
+
+for home in /home/*; do
+  [ -d "$home" ] || continue
+
+  user="$(basename "$home")"
+  id "$user" >/dev/null 2>&1 || continue
+
+  target_dir="$home/.config/niri"
+  target="$target_dir/config.kdl"
+
+  install -d -o "$user" -g "$user" "$target_dir"
+
+  # Se non esiste, crea il symlink alla config gestita da CampiOS
+  if [ ! -e "$target" ]; then
+    ln -s "$SRC" "$target"
+    chown -h "$user:$user" "$target"
+    continue
+  fi
+
+  # Se è già il symlink corretto, non fare nulla
+  if [ -L "$target" ] && [ "$(readlink "$target")" = "$SRC" ]; then
+    continue
+  fi
+
+  # Se esiste già un file reale, lo salvo e lo sostituisco con il symlink CampiOS
+  if [ -f "$target" ] && [ ! -L "$target" ]; then
+    cp -a "$target" "$target.user-backup"
+    rm -f "$target"
+    ln -s "$SRC" "$target"
+    chown -h "$user:$user" "$target"
+  fi
+done
+EOF
+
+chmod +x /usr/libexec/campios-sync-user-configs
+
+cat > /usr/lib/systemd/system/campios-sync-user-configs.service <<'EOF'
+[Unit]
+Description=Sync CampiOS user configs
+After=local-fs.target
+ConditionPathExists=/usr/share/campios/niri/config.kdl
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/campios-sync-user-configs
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable campios-sync-user-configs.service
+
+# ==========================================================
 # Podman
 # ==========================================================
 
