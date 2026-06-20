@@ -99,6 +99,9 @@ systemctl enable --force greetd.service
 # Config utente predefinita
 # ==========================================================
 
+# Abilita DMS per tutti gli utenti via systemd user globale
+systemctl --global enable dms.service || true
+# Fallback per nuovi utenti creati da /etc/skel
 mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
 ln -s /usr/lib/systemd/user/dms.service /etc/skel/.config/systemd/user/graphical-session.target.wants/
 
