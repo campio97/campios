@@ -1,0 +1,33 @@
+{
+  "default": [
+    {
+      "type": "reject"
+    }
+  ],
+  "transports": {
+    "docker": {
+      "ghcr.io/rakuos": [
+        {
+          "type": "insecureAcceptAnything"
+        }
+      ],
+      "ghcr.io/campio97/campios": [
+        {
+          "type": "insecureAcceptAnything"
+        }
+      ],
+      "registry.gitlab.com/rakuos/images": [
+        {
+          "type": "insecureAcceptAnything"
+        }
+      ]
+    },
+    "containers-storage": {
+      "": [
+        {
+          "type": "insecureAcceptAnything"
+        }
+      ]
+    }
+  }
+}
