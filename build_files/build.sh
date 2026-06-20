@@ -174,6 +174,13 @@ EOF
 systemctl enable campios-sync-user-configs.service
 
 # ==========================================================
+# Container image policy
+# ==========================================================
+
+install -d /etc/containers
+install -m 0644 /ctx/etc/containers/policy.json /etc/containers/policy.json
+
+# ==========================================================
 # Podman
 # ==========================================================
 
