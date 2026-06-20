@@ -1,0 +1,4 @@
+com.github.tchx84.Flatseal
+org.videolan.VLC
+com.google.Chrome
+com.visualstudio.code
