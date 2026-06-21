@@ -65,6 +65,43 @@ $DNF install -y \
   --allowerasing
 
 # ==========================================================
+# KDE Connect
+# ==========================================================
+
+$DNF install -y \
+  kde-connect \
+  kdeconnectd \
+  fuse-sshfs \
+  dolphin
+
+# ==========================================================
+# DMS plugin: Phone Connect / DankKDEConnect
+# ==========================================================
+
+DMS_PLUGIN_TMP="$(mktemp -d)"
+
+git clone --depth=1 --filter=blob:none --sparse \
+  https://github.com/AvengeMedia/dms-plugins.git "$DMS_PLUGIN_TMP"
+
+git -C "$DMS_PLUGIN_TMP" sparse-checkout set DankKDEConnect
+
+install -d /etc/xdg/quickshell/dms-plugins
+rm -rf /etc/xdg/quickshell/dms-plugins/DankKDEConnect
+cp -a "$DMS_PLUGIN_TMP/DankKDEConnect" /etc/xdg/quickshell/dms-plugins/
+
+rm -rf "$DMS_PLUGIN_TMP"
+
+install -d /etc/skel/.config/DankMaterialShell
+
+cat > /etc/skel/.config/DankMaterialShell/plugin_settings.json <<'EOF'
+{
+  "dankKDEConnect": {
+    "enabled": true
+  }
+}
+EOF
+
+# ==========================================================
 # Greetd come display manager
 # ==========================================================
 
