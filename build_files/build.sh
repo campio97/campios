@@ -254,7 +254,7 @@ install_items+=" /usr/share/plymouth/themes/campios/logo.png "
 EOF
 
 plymouth-set-default-theme campios
-dracut --regenerate-all --force
+#dracut --regenerate-all --force
 
 # ==========================================================
 # Default Flatpaks
