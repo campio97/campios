@@ -4,8 +4,6 @@ COPY build_files /
 
 # Base Image
 FROM ghcr.io/rakuos/rakuos-base-nvidia:latest
-#FROM ghcr.io/rakuos/rakuos-base:latest
-#RUN sed -i 's/^ID=.*/ID=fedora/' /etc/os-release
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
@@ -32,11 +30,14 @@ FROM ghcr.io/rakuos/rakuos-base-nvidia:latest
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=secret,id=campios_mok_key,target=/run/secrets/campios_mok_key \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh
-    
+
+RUN bootc container lint
+
 ### LINTING
 ## Verify final image and contents are correct.
 RUN bootc container lint

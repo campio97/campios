@@ -92,18 +92,25 @@ jobs:
           sep-tags: " "
           sep-annotations: " "
 
+      - name: Write CampiOS MOK private key
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/campios-secureboot
+          printf '%s' '${{ secrets.CAMPIOS_MOK_KEY_B64 }}' | base64 -d > /tmp/campios-secureboot/campios-mok.key
+          chmod 600 /tmp/campios-secureboot/campios-mok.key
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
         with:
           containerfiles: |
             ./Containerfile
-          # Postfix image name with -custom to make it a little more descriptive
-          # Syntax: https://docs.github.com/en/actions/learn-github-actions/expressions#format
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false
+          extra-args: |
+            --secret=id=campios_mok_key,src=/tmp/campios-secureboot/campios-mok.key
 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
