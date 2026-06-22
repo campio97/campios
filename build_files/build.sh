@@ -251,7 +251,8 @@ EOF
 install -d /etc/dracut.conf.d
 
 cat > /etc/dracut.conf.d/99-campios-plymouth.conf <<'EOF'
-add_dracutmodules+=" plymouth "
+add_dracutmodules+=" plymouth ostree "
+hostonly="no"
 install_items+=" /etc/plymouth/plymouthd.conf "
 install_items+=" /usr/share/plymouth/themes/campios/campios.plymouth "
 install_items+=" /usr/share/plymouth/themes/campios/campios.script "
@@ -259,7 +260,18 @@ install_items+=" /usr/share/plymouth/themes/campios/logo.png "
 EOF
 
 plymouth-set-default-theme campios
-#dracut --regenerate-all --force
+# NB: l'initramfs viene rigenerato DOPO la firma Secure Boot (vedi più sotto),
+# così da includere il tema CampiOS e i moduli kernel già firmati.
+
+# Kernel cmdline per uno splash pulito, gestito da bootc tramite kargs.d.
+# I parametri vengono applicati al bootloader a ogni deploy/upgrade.
+install -d /usr/lib/bootc/kargs.d
+cat > /usr/lib/bootc/kargs.d/10-campios.toml <<'EOF'
+# quiet                       -> riduce i log del kernel sulla console
+# splash                      -> attiva lo splash grafico di Plymouth
+# rd.systemd.show_status=false-> nasconde i messaggi di stato systemd nell'initramfs
+kargs = ["quiet", "splash", "rd.systemd.show_status=false"]
+EOF
 
 # ==========================================================
 # Default Flatpaks
@@ -304,6 +316,25 @@ glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 /ctx/scripts/sign-secureboot.sh
 /ctx/scripts/install-mok-enroll-script.sh
+
+# ==========================================================
+# Rigenerazione initramfs (DOPO la firma dei moduli)
+# ==========================================================
+# L'immagine base (rakuos) porta un initramfs col PROPRIO tema Plymouth: va
+# rigenerato perché il logo CampiOS compaia anche al boot a freddo. Si includono
+# esplicitamente "ostree" (necessario per bootc, non auto-rilevato in container)
+# e "plymouth", e si rigenera dopo la firma così i moduli NVIDIA nell'initramfs
+# sono già firmati per Secure Boot.
+
+for kver in /usr/lib/modules/*/; do
+  kver="$(basename "$kver")"
+  [[ -f "/usr/lib/modules/$kver/vmlinuz" ]] || continue
+  echo "Rigenero initramfs per kernel: $kver"
+  dracut --force --no-hostonly --reproducible \
+    --add "ostree plymouth" \
+    --kver "$kver" \
+    "/usr/lib/modules/$kver/initramfs.img"
+done
 
 # ==========================================================
 # bootc install defaults

@@ -275,7 +275,7 @@ layout {
 
 // spawn-sh-at-startup "dms run"
 
-spawn-at-startup "kdeconnectd"
+spawn-sh-at-startup "kdeconnectd || /usr/libexec/kdeconnectd"
 
 spawn-sh-at-startup "lxpolkit"
 spawn-sh-at-startup "test -f \"$HOME/.ssh/id_rsa\" && SSH_ASKPASS=/usr/libexec/openssh/ssh-askpass SSH_ASKPASS_REQUIRE=force ssh-add \"$HOME/.ssh/id_rsa\" < /dev/null || true"

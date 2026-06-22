@@ -1,34 +1,53 @@
+# ===========================================================
+# CampiOS - Plymouth boot splash
+# ===========================================================
+
 Window.SetBackgroundTopColor(0.02, 0.02, 0.025);
 Window.SetBackgroundBottomColor(0.02, 0.02, 0.025);
 
-logo.image = Image("logo.png");
+# --- Logo -------------------------------------------------
+# Il PNG originale e' grande (1254x1254): lo scaliamo al 25%
+# dell'altezza dello schermo mantenendo le proporzioni, cosi'
+# non viene tagliato e lascia spazio allo spinner sotto.
+logo.original = Image("logo.png");
+
+logo.target_height = Window.GetHeight() * 0.25;
+logo.ratio = logo.original.GetWidth() / logo.original.GetHeight();
+logo.image = logo.original.Scale(logo.target_height * logo.ratio, logo.target_height);
+
 logo.sprite = Sprite(logo.image);
 
+# --- Spinner testuale -------------------------------------
 spinner.frames[0] = "|";
 spinner.frames[1] = "/";
 spinner.frames[2] = "-";
 spinner.frames[3] = "\\";
 
 spinner.index = 0;
+spinner.tick = 0;
 spinner.sprite = Sprite();
 
 fun center_logo() {
   logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-  logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 40);
+  logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
 }
 
 fun update_spinner() {
-  spinner.text = spinner.frames[spinner.index];
-  spinner.image = Image.Text(spinner.text, 1, 1, 1);
-  spinner.sprite.SetImage(spinner.image);
-
-  spinner.sprite.SetX(Window.GetWidth() / 2 - spinner.image.GetWidth() / 2);
-  spinner.sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 20);
-
-  spinner.index++;
-  if (spinner.index >= 4) {
-    spinner.index = 0;
+  # refresh_callback gira a ~50 Hz: avanziamo il frame solo ogni 12 tick
+  # (~4 passi/secondo, un giro completo al secondo) invece che a ogni frame.
+  spinner.tick++;
+  if (spinner.tick >= 12) {
+    spinner.tick = 0;
+    spinner.index++;
+    if (spinner.index >= 4) {
+      spinner.index = 0;
+    }
   }
+
+  spinner.image = Image.Text(spinner.frames[spinner.index], 1, 1, 1);
+  spinner.sprite.SetImage(spinner.image);
+  spinner.sprite.SetX(Window.GetWidth() / 2 - spinner.image.GetWidth() / 2);
+  spinner.sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 30);
 }
 
 fun refresh_callback() {
