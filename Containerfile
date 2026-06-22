@@ -36,7 +36,14 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh
 
-RUN bootc container lint
+# bootc-image-builder non conosce "rakuos-43".
+# Lo dichiariamo come Fedora 43 derivative per permettere la generazione ISO/QCOW2.
+RUN sed -i 's/^ID=.*/ID=fedora/' /etc/os-release && \
+    sed -i 's/^NAME=.*/NAME="CampiOS"/' /etc/os-release && \
+    sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="CampiOS"/' /etc/os-release && \
+    grep -q '^ID_LIKE=' /etc/os-release \
+      && sed -i 's/^ID_LIKE=.*/ID_LIKE="fedora rakuos"/' /etc/os-release \
+      || echo 'ID_LIKE="fedora rakuos"' >> /etc/os-release
 
 ### LINTING
 ## Verify final image and contents are correct.
