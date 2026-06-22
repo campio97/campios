@@ -2,8 +2,121 @@
 
 [customizations.installer.kickstart]
 contents = """
-%post
-bootc switch --mutate-in-place --transport registry ghcr.io/campio97/campios:latest
+%pre
+mkdir -p /tmp/campios-anaconda-logs
+%end
+
+# Switch dell'installazione appena creata verso l'immagine CampiOS.
+# Questo %post gira nel chroot del sistema installato.
+%post --erroronfail --log=/root/campios-bootc-switch.log
+set -euxo pipefail
+
+CAMPIOS_IMAGE="ghcr.io/campio97/campios:latest"
+
+echo "Switching installed system to: ${CAMPIOS_IMAGE}"
+
+bootc switch \
+  --mutate-in-place \
+  --transport registry \
+  "${CAMPIOS_IMAGE}"
+
+echo "bootc switch completed."
+
+# Aggiorna/adotta shim+grub sulla ESP se bootupd è disponibile.
+# Non forziamo downgrade: se bootupctl decide di ignorare un downgrade va bene.
+if command -v bootupctl >/dev/null 2>&1; then
+  echo "Running bootupctl checks..."
+
+  bootupctl status || true
+
+  if bootupctl status 2>&1 | grep -qi "Adoptable"; then
+    echo "EFI bootloader is adoptable, running adopt-and-update..."
+    bootupctl adopt-and-update || true
+  else
+    echo "EFI bootloader already managed or not adoptable, running update..."
+    bootupctl update || true
+  fi
+
+  bootupctl validate || true
+else
+  echo "WARNING: bootupctl not found, skipping EFI bootloader update."
+fi
+
+sync
+%end
+
+# Accoda l'enrollment MOK CampiOS PRIMA del primo boot reale.
+# Questo %post gira fuori dal chroot, così vede l'UEFI/efivarfs dell'ambiente installer.
+%post --nochroot --log=/tmp/campios-anaconda-logs/campios-mok-enroll.log
+set -euxo pipefail
+
+TARGET_ROOT=""
+
+for candidate in /mnt/sysroot /mnt/sysimage; do
+  if [ -d "${candidate}/usr" ]; then
+    TARGET_ROOT="${candidate}"
+    break
+  fi
+done
+
+if [ -z "${TARGET_ROOT}" ]; then
+  echo "WARNING: target root non trovato, salto MOK enrollment."
+  exit 0
+fi
+
+CERT="${TARGET_ROOT}/etc/pki/campios/secureboot/campios-mok.der"
+PASSWORD="campios"
+
+if [ ! -d /sys/firmware/efi ]; then
+  echo "UEFI non rilevato nell'ambiente installer, salto MOK enrollment."
+  exit 0
+fi
+
+if [ ! -f "${CERT}" ]; then
+  echo "ERRORE: certificato CampiOS MOK non trovato: ${CERT}"
+  exit 1
+fi
+
+# Prepara bind mount utili al chroot. Alcuni installer li hanno già, altri no.
+for fs in dev proc sys run; do
+  if mountpoint -q "${TARGET_ROOT}/${fs}"; then
+    echo "${TARGET_ROOT}/${fs} già montato."
+  else
+    mount --bind "/${fs}" "${TARGET_ROOT}/${fs}" || true
+  fi
+done
+
+# Se la chiave è già enrollata, non facciamo nulla.
+if chroot "${TARGET_ROOT}" mokutil --test-key /etc/pki/campios/secureboot/campios-mok.der >/dev/null 2>&1; then
+  echo "CampiOS MOK già enrollata."
+  exit 0
+fi
+
+# Se esiste lo script installato nella distro, usiamo quello.
+if [ -x "${TARGET_ROOT}/usr/libexec/campios-enroll-mok" ]; then
+  echo "Using /usr/libexec/campios-enroll-mok from installed system..."
+  chroot "${TARGET_ROOT}" /usr/libexec/campios-enroll-mok
+else
+  echo "Helper /usr/libexec/campios-enroll-mok non trovato, uso fallback diretto con mokutil."
+
+  if [ ! -x "${TARGET_ROOT}/usr/bin/mokutil" ]; then
+    echo "ERRORE: mokutil non trovato nel sistema installato."
+    exit 1
+  fi
+
+  chroot "${TARGET_ROOT}" mokutil --timeout -1 || true
+
+  printf '%s\\n%s\\n' "${PASSWORD}" "${PASSWORD}" | \
+    chroot "${TARGET_ROOT}" mokutil --import /etc/pki/campios/secureboot/campios-mok.der
+fi
+
+echo
+echo "Richiesta MOK CampiOS accodata."
+echo "Al prossimo reboot dovrebbe apparire MokManager."
+echo "Percorso: Enroll MOK -> Continue -> Yes"
+echo "Password: ${PASSWORD}"
+
+sync
 %end
 """
 
