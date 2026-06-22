@@ -294,6 +294,31 @@ systemctl enable campios-install-flatpaks.service
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 # ==========================================================
+# Secure Boot sanity check
+# ==========================================================
+
+if command -v sbverify >/dev/null 2>&1; then
+  for kernel in /usr/lib/modules/*/vmlinuz; do
+    [ -f "$kernel" ] || continue
+
+    echo "Checking Secure Boot signature for: $kernel"
+
+    if ! sbverify --list "$kernel" 2>&1 | tee /tmp/campios-kernel-signature.txt; then
+      echo "ERRORE: kernel non verificabile da sbverify: $kernel"
+      exit 1
+    fi
+
+    if ! grep -Ei 'RakuOS|Fedora|ublue|Microsoft' /tmp/campios-kernel-signature.txt; then
+      echo "ERRORE: kernel firmato con una chiave inattesa o non firmato: $kernel"
+      cat /tmp/campios-kernel-signature.txt
+      exit 1
+    fi
+  done
+else
+  echo "WARNING: sbverify non disponibile, salto controllo firma kernel."
+fi
+
+# ==========================================================
 # Pulizia
 # ==========================================================
 
