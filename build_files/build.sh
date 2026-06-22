@@ -32,6 +32,11 @@ $DNF install -y \
   iotop \
   sysstat
 
+# pacchetti per verificare firma kernel dopo
+$DNF install -y \
+  sbsigntools \
+  pesign
+
 # ==========================================================
 # App utente CampiOS
 # ==========================================================
