@@ -92,6 +92,41 @@ for kdir in /usr/lib/modules/*; do
   done
 
   depmod "$kver"
+
+  echo
+  echo "=== Verifying NVIDIA module signatures ==="
+
+  mapfile -t NVIDIA_MODULES < <(
+    find /usr/lib/modules \
+      -type f \
+      \( -name 'nvidia*.ko' -o -name 'nvidia*.ko.xz' -o -name 'nvidia*.ko.zst' \) \
+      | sort
+  )
+
+  if [ "${#NVIDIA_MODULES[@]}" -eq 0 ]; then
+    echo "WARNING: nessun modulo NVIDIA trovato in /usr/lib/modules."
+    echo "Se questa è una build NVIDIA, controlla che i moduli siano presenti."
+  else
+    for mod in "${NVIDIA_MODULES[@]}"; do
+      echo "Checking NVIDIA module: $mod"
+
+      signer="$(modinfo -F signer "$mod" 2>/dev/null || true)"
+      sig_key="$(modinfo -F sig_key "$mod" 2>/dev/null || true)"
+
+      echo "  signer: ${signer:-none}"
+      echo "  sig_key: ${sig_key:-none}"
+
+      if [[ -z "$signer" ]]; then
+        echo "ERRORE: modulo NVIDIA non firmato: $mod"
+        exit 1
+      fi
+
+      if ! echo "$signer" | grep -Eqi 'CampiOS|RakuOS|ublue|Fedora'; then
+        echo "ERRORE: modulo NVIDIA firmato con chiave inattesa: $mod"
+        exit 1
+      fi
+    done
+  fi
 done
 
 echo
