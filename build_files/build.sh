@@ -306,6 +306,17 @@ glib-compile-schemas /usr/share/glib-2.0/schemas/
 /ctx/scripts/install-mok-enroll-script.sh
 
 # ==========================================================
+# bootc install defaults
+# ==========================================================
+
+install -d /usr/lib/bootc/install
+
+cat > /usr/lib/bootc/install/00-campios.toml <<'EOF'
+[install.filesystem.root]
+type = "ext4"
+EOF
+
+# ==========================================================
 # Pulizia
 # ==========================================================
 
