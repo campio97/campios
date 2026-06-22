@@ -23,6 +23,7 @@ $DNF install -y \
   git \
   curl \
   wget \
+  jq \
   just \
   podman \
   distrobox \
@@ -78,6 +79,19 @@ $DNF install -y \
   kdeconnectd \
   fuse-sshfs \
   dolphin
+
+# ----------------------------------------------------------
+# Firewall: KDE Connect usa TCP+UDP 1714-1764. Senza queste
+# porte aperte il discovery/pairing dei dispositivi fallisce.
+# A build-time firewalld non gira, quindi si usa la variante
+# offline (firewall-cmd richiederebbe il daemon attivo).
+# ----------------------------------------------------------
+if command -v firewall-offline-cmd >/dev/null 2>&1; then
+  firewall-offline-cmd --add-service=kdeconnect 2>/dev/null \
+    || firewall-offline-cmd \
+         --add-port=1714-1764/tcp \
+         --add-port=1714-1764/udp
+fi
 
 # ==========================================================
 # DMS plugin: Phone Connect / DankKDEConnect
@@ -168,6 +182,29 @@ for home in /home/*; do
 
   user="$(basename "$home")"
   id "$user" >/dev/null 2>&1 || continue
+
+  # --- Plugin DankKDEConnect: abilitato di default anche per utenti esistenti ---
+  # Merge non distruttivo: preserva eventuali altre impostazioni dei plugin e
+  # NON forza il valore se l'utente lo ha esplicitamente cambiato.
+  dms_dir="$home/.config/DankMaterialShell"
+  dms_file="$dms_dir/plugin_settings.json"
+  install -d -o "$user" -g "$user" "$dms_dir"
+
+  if [ ! -e "$dms_file" ]; then
+    echo '{"dankKDEConnect":{"enabled":true}}' > "$dms_file"
+    chown "$user:$user" "$dms_file"
+  elif command -v jq >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    if jq 'if (.dankKDEConnect.enabled == null) then (.dankKDEConnect.enabled = true) else . end' \
+         "$dms_file" > "$tmp" 2>/dev/null; then
+      # Sovrascrive solo se cambiato e mantiene proprietario/inode del file utente
+      if ! cmp -s "$tmp" "$dms_file"; then
+        cat "$tmp" > "$dms_file"
+        chown "$user:$user" "$dms_file"
+      fi
+    fi
+    rm -f "$tmp"
+  fi
 
   target_dir="$home/.config/niri"
   target="$target_dir/config.kdl"
