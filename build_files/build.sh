@@ -31,12 +31,36 @@ $DNF install -y \
   seahorse \
   lxpolkit \
   iotop \
-  sysstat
+  sysstat \
+  fish
 
 # pacchetti per verificare firma kernel dopo
 $DNF install -y \
   sbsigntools \
   pesign
+
+# ==========================================================
+# Rust / Cargo (via rustup)
+# ==========================================================
+# Su una distro immutabile non si "bakea" il toolchain in /usr: lo si lascia
+# gestire all'utente con rustup. Si installa SOLO rustup nell'immagine (in
+# /usr, read-only), mentre il toolchain vero (rustc, cargo, std) vive in
+# ~/.rustup e ~/.cargo, cioè nella home mutabile.
+#
+# Vantaggio: l'utente aggiorna Rust con `rustup update` SENZA rebuildare
+# l'immagine, e può avere più toolchain (stable/nightly) in parallelo.
+# Primo setup, una tantum per utente:  rustup default stable
+$DNF install -y rustup
+
+# Aggiunge ~/.cargo/bin al PATH: qui rustup mette i proxy (cargo, rustc, ...)
+# e i binari installati con `cargo install`. Profile globale, vale per tutti.
+cat > /etc/profile.d/campios-cargo.sh <<'EOF'
+# CampiOS: toolchain Rust gestito da rustup nella home utente
+case ":$PATH:" in
+  *":$HOME/.cargo/bin:"*) ;;
+  *) [ -n "$HOME" ] && PATH="$HOME/.cargo/bin:$PATH" ;;
+esac
+EOF
 
 # ==========================================================
 # App utente CampiOS
