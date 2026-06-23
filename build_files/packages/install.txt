@@ -1,0 +1,50 @@
+# CampiOS — pacchetti DNF installati a build-time.
+#
+# Un pacchetto per riga. Le righe vuote e i commenti ('#', anche inline) sono
+# ignorati. Letto da build.sh con un'unica transazione dnf.
+#
+# I casi SPECIALI NON stanno qui e restano inline in build.sh:
+#   - gruppo DMS (quickshell/dms/greetd/dms-greeter): richiede il repo COPR
+#     avengemedia/dms e --allowerasing;
+#   - rimozione di waybar: va fatta DOPO l'install di DMS.
+
+# --- Base / CLI ---
+git
+curl
+wget
+jq
+just
+podman
+distrobox
+flatpak
+seahorse
+lxpolkit
+iotop
+sysstat
+fish
+
+# --- Secure Boot: firma/verifica di kernel e moduli (usati da sign-secureboot.sh) ---
+sbsigntools
+pesign
+
+# --- Rust: solo rustup-init nell'immagine; il toolchain vive nella home (vedi build.sh) ---
+rustup
+
+# --- App utente ---
+nautilus
+kitty
+loupe
+
+# --- Niri (compositor Wayland) ---
+niri
+bibata-cursor-theme
+
+# --- KDE Connect ---
+kde-connect
+kdeconnectd
+fuse-sshfs
+dolphin
+
+# --- Plymouth (boot splash CampiOS) ---
+plymouth
+plymouth-plugin-script
