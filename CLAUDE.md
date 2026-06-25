@@ -16,16 +16,16 @@ Source comments and git commit messages are written in **Italian** — match tha
 
 | Subsystem | Script |
 |---|---|
-| Dev-box (distrobox: VSCode + Rust/Cargo + Python, first-login creator + service) | `setup-devbox.sh` |
 | KDE Connect (firewall ports + DMS plugin) | `setup-kdeconnect.sh` |
 | greetd display manager | `setup-greetd.sh` |
 | Default user session — DMS + niri, new *and* existing users | `setup-user-configs.sh` |
 | Plymouth boot splash (theme + kargs) | `setup-plymouth.sh` |
 | Default Flatpaks (first-boot installer + service) | `setup-flatpaks.sh` |
+| Auto-updates (bootc background timer + per-login notification) | `setup-updates.sh` |
 | Secure Boot signing / MOK enroll helper | `sign-secureboot.sh`, `install-mok-enroll-script.sh` |
 | initramfs regeneration (runs *after* signing) | `regenerate-initramfs.sh` |
 
-To change one subsystem, edit its script. To change *ordering* or add a new subsystem, edit `build.sh`. Inline glue that stays in `build.sh` on purpose: the dnf package install, the DMS COPR install, fish-as-default-shell, `policy.json`, the podman socket, `waybar` removal, glib schemas, and cleanup.
+To change one subsystem, edit its script. To change *ordering* or add a new subsystem, edit `build.sh`. Inline glue that stays in `build.sh` on purpose: the dnf package install, the DMS COPR install, fish-as-default-shell, `policy.json`, the podman socket, `waybar` removal, the default-browser `mimeapps.list` install + defensive Firefox RPM removal, glib schemas, and cleanup.
 
 Files under `build_files/` are copied into the build context (stage `ctx`) and referenced as `/ctx/...` (so a script reads e.g. `/ctx/dot_config/niri/config.kdl`). Scripts invoked during the build must be executable — commit them as mode `755`. New extracted scripts follow the existing style: `#!/usr/bin/env bash`, `set -euo pipefail`, and an `echo "=== CampiOS: … ==="` banner (no `set -x`).
 
@@ -66,12 +66,17 @@ Image name/tag are overridable via env: `IMAGE_NAME` (default `campios`), `DEFAU
 
 ### Immutable-OS config model
 `/usr` is read-only at runtime, so user-facing defaults are applied two ways and **both must be kept in sync**:
-- **New users:** seed files in `/etc/skel` (niri config, DMS plugin settings, the per-user `campios-dev-box` service symlink).
+- **New users:** seed files in `/etc/skel` (niri config + the per-user `dms.service` symlink).
 - **Existing users:** reconciled at boot by `campios-sync-user-configs.service` → `/usr/libexec/campios-sync-user-configs`, which sets the login shell to fish, symlinks `~/.config/niri/config.kdl` to the managed `/usr/share/campios/niri/config.kdl` (backing up any real file), and enables the DankKDEConnect plugin via a **non-destructive `jq` merge** (never clobbers a user's explicit choice).
 
-Anything that must not be baked into read-only `/usr` is **bootstrapped at runtime into the home dir**: the **dev-box** is the canonical example — the image ships only `distrobox` plus the assemble manifest `build_files/distrobox/dev-box.ini` (installed to `/usr/share/campios/distrobox/`), and `campios-dev-box.service` (per-user oneshot, first login) runs `/usr/libexec/campios-create-devbox`, which `distrobox assemble create`s a `dev-box` container (`fedora-toolbox` base) holding VSCode, Rust/Cargo and Python in the user's rootless podman storage. The creator self-guards (skips if the box already exists) and retries until the network is up; VSCode is exported to the host menu via `exported_apps`. The toolchain thus lives in the mutable home and can be updated without rebuilding the image.
+Anything that must not be baked into read-only `/usr` lives in the **mutable home dir**: e.g. `distrobox` ships in the image, but the dev containers themselves are created by the *user* (the image does not auto-create any box) and live in their rootless podman storage — so a dev toolchain can be installed/updated without rebuilding the image.
 
 First-boot system services also: install/remove Flatpaks from Flathub (`campios-install-flatpaks.service`, driven by `build_files/flatpaks/{default,remove}-apps.txt`), and set up the desktop (DMS enabled globally; greetd replaces `display-manager.service` and launches `dms-greeter --command niri`).
+
+### Auto-updates (background apply + login notification)
+Updates are split to keep the privileged part out of the user session (`setup-updates.sh`):
+- **System (root):** the base's `bootc-fetch-apply-updates.timer` is enabled (with a CampiOS drop-in: `OnBootSec=10min` + `OnUnitActiveSec=6h`) to fetch and *stage* updates in the background — active on next reboot, never auto-reboots. A service drop-in adds `ExecStartPost=/usr/libexec/campios-update-flag`, which writes `/run/campios/update-staged` iff `bootc status` reports a staged deployment (and removes it otherwise — `/run` is tmpfs, so it resets on reboot once the staged image becomes booted).
+- **User (session):** `campios-notify-update.service` (user unit, `WantedBy=graphical-session.target`, `After=dms.service`) runs at every login and `/usr/libexec/campios-notify-update` `notify-send`s if the flag exists. It never calls bootc — no sudo/polkit in the session. A per-boot stamp in `$XDG_RUNTIME_DIR` prevents re-nagging across logins in the same boot. Enabled both globally (`systemctl --global enable`) and via `/etc/skel` (same dual pattern as DMS). The notify helper retries `notify-send` for a while since the DMS notification daemon may not be up yet at session start.
 
 ### Secure Boot (the most fragile part — change carefully)
 - The **public** MOK cert is committed (`build_files/secureboot/campios-mok.{der,pem}`). The **private key is never committed**: it's a build secret `campios_mok_key`, sourced in CI from the GitHub secret `CAMPIOS_MOK_KEY_B64` (base64-encoded).
@@ -94,4 +99,4 @@ The ISO installs a generic image and, in the kickstart `%post`, runs `bootc swit
 - **`disk_config/iso-gnome.toml` and `iso-kde.toml` are not referenced anywhere** — builds use `iso.toml` (ISO) and `disk.toml` (qcow2/raw). Don't assume editing the gnome/kde variants changes a build.
 - Firewall rules at build time use `firewall-offline-cmd` (the firewalld daemon isn't running during the build); KDE Connect needs TCP+UDP `1714-1764` open.
 - Never commit `cosign.key` or the MOK private key. `.gitignore` already excludes `cosign.key`, `output/`, `_build*`, and `secureboot/private/`.
-- The container signature policy (`build_files/etc/containers/policy.json`) defaults to `reject` and only trusts `ghcr.io/rakuos`, `ghcr.io/campio97/campios`, the rakuos GitLab registry, and `registry.fedoraproject.org` (the dev-box `fedora-toolbox` base) — update it if the base image, publish target, or a distrobox base from a new registry changes. **Any rootless `podman`/`distrobox` pull is governed by this policy too:** pulling from an untrusted registry fails with `Source image rejected: ... rejected by policy`.
+- The container signature policy (`build_files/etc/containers/policy.json`) defaults to `reject` and only trusts: `ghcr.io/rakuos`, `ghcr.io/campio97/campios`, the rakuos GitLab registry (OS base/publish), plus `registry.fedoraproject.org`, `docker.io` and `quay.io` (so the user's own `distrobox` boxes can pull their bases) — update it if the OS base, publish target, or a distrobox base from a new registry changes. **Any rootless `podman`/`distrobox` pull is governed by this policy too:** pulling from an untrusted registry fails with `Source image rejected: ... rejected by policy`.

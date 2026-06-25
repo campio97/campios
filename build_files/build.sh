@@ -35,14 +35,6 @@ mapfile -t CAMPIOS_PACKAGES < <(
 $DNF install -y "${CAMPIOS_PACKAGES[@]}"
 
 # ==========================================================
-# Dev-box (distrobox: VSCode + Rust/Cargo + Python)
-# ==========================================================
-# L'ambiente di sviluppo non si bakea nell'immagine immutabile: si crea una
-# distrobox per-utente al primo login (storage mutabile nella home). VSCode,
-# Rust/Cargo e Python vivono lì dentro, non in /usr.
-/ctx/scripts/setup-devbox.sh
-
-# ==========================================================
 # Shell di default: fish
 # ==========================================================
 # I nuovi utenti creati con useradd nascono con fish come login shell.
@@ -131,6 +123,22 @@ EOF
 # Default Flatpaks (installer + service, eseguiti al primo boot)
 # ==========================================================
 /ctx/scripts/setup-flatpaks.sh
+
+# ==========================================================
+# Browser predefinito: Google Chrome
+# ==========================================================
+# Chrome (flatpak) viene installato al primo boot da default-apps.txt e Firefox
+# (flatpak) rimosso da remove-apps.txt. Qui impostiamo Chrome come default di
+# sistema via /etc/xdg/mimeapps.list (vale per tutti gli utenti) e, per sicurezza,
+# rimuoviamo l'eventuale RPM Firefox se la base lo spedisce come pacchetto.
+install -d /etc/xdg
+install -m 0644 /ctx/etc/xdg/mimeapps.list /etc/xdg/mimeapps.list
+$DNF -y remove firefox || true
+
+# ==========================================================
+# Aggiornamenti automatici (timer bootc + notifica al login)
+# ==========================================================
+/ctx/scripts/setup-updates.sh
 
 # ==========================================================
 # Schemi GLib

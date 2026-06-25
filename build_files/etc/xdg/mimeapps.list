@@ -1,0 +1,22 @@
+# CampiOS — default applicazioni di sistema.
+#
+# /etc/xdg/mimeapps.list è il default dell'amministratore (precedenza freedesktop:
+# sta sopra a /usr/share ma sotto a ~/.config/mimeapps.list dell'utente). Vale per
+# tutti gli utenti, nuovi ed esistenti, senza toccare le home: chi imposta un
+# proprio default lo sovrascrive (non distruttivo).
+#
+# Browser predefinito = Google Chrome (flatpak com.google.Chrome, installato al
+# primo boot da flatpaks/default-apps.txt → desktop id com.google.Chrome.desktop).
+
+[Default Applications]
+x-scheme-handler/http=com.google.Chrome.desktop
+x-scheme-handler/https=com.google.Chrome.desktop
+x-scheme-handler/about=com.google.Chrome.desktop
+x-scheme-handler/unknown=com.google.Chrome.desktop
+text/html=com.google.Chrome.desktop
+application/xhtml+xml=com.google.Chrome.desktop
+application/x-extension-htm=com.google.Chrome.desktop
+application/x-extension-html=com.google.Chrome.desktop
+application/x-extension-shtml=com.google.Chrome.desktop
+application/x-extension-xhtml=com.google.Chrome.desktop
+application/x-extension-xht=com.google.Chrome.desktop

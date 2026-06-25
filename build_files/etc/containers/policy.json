@@ -25,6 +25,16 @@
         {
           "type": "insecureAcceptAnything"
         }
+      ],
+      "docker.io": [
+        {
+          "type": "insecureAcceptAnything"
+        }
+      ],
+      "quay.io": [
+        {
+          "type": "insecureAcceptAnything"
+        }
       ]
     },
     "containers-storage": {
