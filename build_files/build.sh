@@ -95,6 +95,13 @@ $DNF -y remove waybar || true
 /ctx/scripts/setup-plymouth.sh
 
 # ==========================================================
+# Dual boot: os-prober (rileva Windows e lo aggiunge al menu GRUB)
+# ==========================================================
+# Abilita os-prober + helper/service runtime; la rilevazione vera gira sulla
+# macchina reale (il container di build non vede gli altri dischi).
+/ctx/scripts/setup-osprober.sh
+
+# ==========================================================
 # Bluetooth MediaTek MT7922 — workaround regressione driver
 # ==========================================================
 # Sul kernel CachyOS la ricezione Bluetooth del MT7922 (driver mt7921e/btmtk)

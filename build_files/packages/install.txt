@@ -45,3 +45,6 @@ dolphin
 # --- Plymouth (boot splash CampiOS) ---
 plymouth
 plymouth-plugin-script
+
+# --- Dual boot: rilevamento altri OS (Windows) nel menu GRUB (setup-osprober.sh) ---
+os-prober

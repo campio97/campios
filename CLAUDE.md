@@ -22,6 +22,7 @@ Source comments and git commit messages are written in **Italian** — match tha
 | Plymouth boot splash (theme + kargs) | `setup-plymouth.sh` |
 | Default Flatpaks (first-boot installer + service) | `setup-flatpaks.sh` |
 | Auto-updates (bootc background timer + per-login notification) | `setup-updates.sh` |
+| Dual boot — os-prober (detect Windows/other OS in the GRUB menu) | `setup-osprober.sh` |
 | Secure Boot signing / MOK enroll helper | `sign-secureboot.sh`, `install-mok-enroll-script.sh` |
 | initramfs regeneration (runs *after* signing) | `regenerate-initramfs.sh` |
 
@@ -77,6 +78,12 @@ First-boot system services also: install/remove Flatpaks from Flathub (`campios-
 Updates are split to keep the privileged part out of the user session (`setup-updates.sh`):
 - **System (root):** the base's `bootc-fetch-apply-updates.timer` is enabled (with a CampiOS drop-in: `OnBootSec=10min` + `OnUnitActiveSec=6h`) to fetch and *stage* updates in the background — active on next reboot, never auto-reboots. A service drop-in adds `ExecStartPost=/usr/libexec/campios-update-flag`, which writes `/run/campios/update-staged` iff `bootc status` reports a staged deployment (and removes it otherwise — `/run` is tmpfs, so it resets on reboot once the staged image becomes booted).
 - **User (session):** `campios-notify-update.service` (user unit, `WantedBy=graphical-session.target`, `After=dms.service`) runs at every login and `/usr/libexec/campios-notify-update` `notify-send`s if the flag exists. It never calls bootc — no sudo/polkit in the session. A per-boot stamp in `$XDG_RUNTIME_DIR` prevents re-nagging across logins in the same boot. Enabled both globally (`systemctl --global enable`) and via `/etc/skel` (same dual pattern as DMS). The notify helper retries `notify-send` for a while since the DMS notification daemon may not be up yet at session start.
+
+### Dual boot — os-prober (`setup-osprober.sh`)
+Detecting Windows (or any OS on another disk) **cannot happen at build time**: the build container has no `/boot` and can't see the machine's other disks. So `build.sh` only *prepares* the image — the real scan runs on the booted hardware:
+- `os-prober` is installed (data: `packages/install.txt`) and explicitly **re-enabled** in `/etc/default/grub` (`GRUB_DISABLE_OS_PROBER=false`); Fedora deprecated and disables it by default, so without this `grub2-mkconfig` adds nothing.
+- `/usr/bin/campios-regenerate-grub` remounts `/boot`(`/efi`) rw, runs `grub2-mkconfig -o /etc/grub2-efi.cfg` (UEFI) or `/etc/grub2.cfg` (BIOS) — the Fedora symlinks to the live `grub.cfg`, same recipe as ublue/Bazzite's `regenerate-grub` — then remounts ro. Re-elevates with sudo if run as non-root.
+- `campios-detect-os.service` (oneshot, `After=multi-user.target`, guarded by a persistent stamp `/var/lib/campios/os-detected.stamp`) runs the helper **once** on first boot so Windows appears automatically after the next reboot, without sitting on the boot-critical path. To re-scan later (e.g. a newly added disk): `sudo campios-regenerate-grub`. We deliberately do *not* regenerate GRUB on every boot — os-prober mounting all partitions is fragile (it can hang on a corrupted FS), which is why ublue keeps it manual too.
 
 ### Secure Boot (the most fragile part — change carefully)
 - The **public** MOK cert is committed (`build_files/secureboot/campios-mok.{der,pem}`). The **private key is never committed**: it's a build secret `campios_mok_key`, sourced in CI from the GitHub secret `CAMPIOS_MOK_KEY_B64` (base64-encoded).
