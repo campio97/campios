@@ -20,6 +20,11 @@
         {
           "type": "insecureAcceptAnything"
         }
+      ],
+      "registry.fedoraproject.org": [
+        {
+          "type": "insecureAcceptAnything"
+        }
       ]
     },
     "containers-storage": {
