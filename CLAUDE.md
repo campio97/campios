@@ -16,7 +16,7 @@ Source comments and git commit messages are written in **Italian** — match tha
 
 | Subsystem | Script |
 |---|---|
-| Rust toolchain bootstrap (rustup → home) | `setup-rust.sh` |
+| Dev-box (distrobox: VSCode + Rust/Cargo + Python, first-login creator + service) | `setup-devbox.sh` |
 | KDE Connect (firewall ports + DMS plugin) | `setup-kdeconnect.sh` |
 | greetd display manager | `setup-greetd.sh` |
 | Default user session — DMS + niri, new *and* existing users | `setup-user-configs.sh` |
@@ -66,10 +66,10 @@ Image name/tag are overridable via env: `IMAGE_NAME` (default `campios`), `DEFAU
 
 ### Immutable-OS config model
 `/usr` is read-only at runtime, so user-facing defaults are applied two ways and **both must be kept in sync**:
-- **New users:** seed files in `/etc/skel` (niri config, DMS plugin settings, the per-user `campios-rust-init` symlink).
+- **New users:** seed files in `/etc/skel` (niri config, DMS plugin settings, the per-user `campios-dev-box` service symlink).
 - **Existing users:** reconciled at boot by `campios-sync-user-configs.service` → `/usr/libexec/campios-sync-user-configs`, which sets the login shell to fish, symlinks `~/.config/niri/config.kdl` to the managed `/usr/share/campios/niri/config.kdl` (backing up any real file), and enables the DankKDEConnect plugin via a **non-destructive `jq` merge** (never clobbers a user's explicit choice).
 
-Anything that must not be baked into read-only `/usr` is **bootstrapped at runtime into the home dir**: the Rust toolchain is the canonical example — only `rustup-init` ships in the image, and `campios-rust-init.service` (per-user oneshot, first login) installs `rustc`/`cargo`/`std` into `~/.cargo`/`~/.rustup` so users can `rustup update` without rebuilding the image.
+Anything that must not be baked into read-only `/usr` is **bootstrapped at runtime into the home dir**: the **dev-box** is the canonical example — the image ships only `distrobox` plus the assemble manifest `build_files/distrobox/dev-box.ini` (installed to `/usr/share/campios/distrobox/`), and `campios-dev-box.service` (per-user oneshot, first login) runs `/usr/libexec/campios-create-devbox`, which `distrobox assemble create`s a `dev-box` container (`fedora-toolbox` base) holding VSCode, Rust/Cargo and Python in the user's rootless podman storage. The creator self-guards (skips if the box already exists) and retries until the network is up; VSCode is exported to the host menu via `exported_apps`. The toolchain thus lives in the mutable home and can be updated without rebuilding the image.
 
 First-boot system services also: install/remove Flatpaks from Flathub (`campios-install-flatpaks.service`, driven by `build_files/flatpaks/{default,remove}-apps.txt`), and set up the desktop (DMS enabled globally; greetd replaces `display-manager.service` and launches `dms-greeter --command niri`).
 
@@ -90,7 +90,7 @@ The ISO installs a generic image and, in the kickstart `%post`, runs `bootc swit
 - `.github/workflows/build-disk.yml` — builds `qcow2` + `anaconda-iso` via `bootc-image-builder-action`, with optional upload to S3 (configured via repo secrets).
 
 ## Gotchas
-- **fish ignores `/etc/profile.d/*.sh`.** Any PATH/env change for login shells must be added in *both* `/etc/profile.d/*.sh` and `/etc/fish/conf.d/*.fish` (see how the `~/.cargo/bin` PATH is handled).
+- **fish ignores `/etc/profile.d/*.sh`.** Any PATH/env change for login shells must be added in *both* `/etc/profile.d/*.sh` and `/etc/fish/conf.d/*.fish`.
 - **`disk_config/iso-gnome.toml` and `iso-kde.toml` are not referenced anywhere** — builds use `iso.toml` (ISO) and `disk.toml` (qcow2/raw). Don't assume editing the gnome/kde variants changes a build.
 - Firewall rules at build time use `firewall-offline-cmd` (the firewalld daemon isn't running during the build); KDE Connect needs TCP+UDP `1714-1764` open.
 - Never commit `cosign.key` or the MOK private key. `.gitignore` already excludes `cosign.key`, `output/`, `_build*`, and `secureboot/private/`.

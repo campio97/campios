@@ -15,3 +15,4 @@ org.gnome.Showtime
 org.gnome.SimpleScan
 org.gnome.SoundRecorder
 org.gnome.Weather
+com.visualstudio.code

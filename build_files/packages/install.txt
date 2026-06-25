@@ -27,9 +27,6 @@ fish
 sbsigntools
 pesign
 
-# --- Rust: solo rustup-init nell'immagine; il toolchain vive nella home (vedi build.sh) ---
-rustup
-
 # --- App utente ---
 nautilus
 kitty

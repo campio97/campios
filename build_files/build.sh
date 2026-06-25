@@ -35,9 +35,12 @@ mapfile -t CAMPIOS_PACKAGES < <(
 $DNF install -y "${CAMPIOS_PACKAGES[@]}"
 
 # ==========================================================
-# Rust / Cargo (rustup, toolchain nella home utente)
+# Dev-box (distrobox: VSCode + Rust/Cargo + Python)
 # ==========================================================
-/ctx/scripts/setup-rust.sh
+# L'ambiente di sviluppo non si bakea nell'immagine immutabile: si crea una
+# distrobox per-utente al primo login (storage mutabile nella home). VSCode,
+# Rust/Cargo e Python vivono lì dentro, non in /usr.
+/ctx/scripts/setup-devbox.sh
 
 # ==========================================================
 # Shell di default: fish
