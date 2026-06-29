@@ -33,8 +33,21 @@ OnUnitActiveSec=6h
 RandomizedDelaySec=30min
 EOF
 
-  # Dopo ogni run del service di apply, calcola/azzera il flag "update pronto".
   install -d /usr/lib/systemd/system/bootc-fetch-apply-updates.service.d
+
+  # Il service della base gira "bootc update --apply": --apply RIAVVIA SUBITO la
+  # macchina appena trova un'immagine nuova. CampiOS vuole invece solo scaricare
+  # e mettere in STAGING (applicato al prossimo reboot manuale, segnalato dalla
+  # notifica al login), quindi sovrascriviamo l'ExecStart togliendo --apply.
+  # Senza questo override il PC si riavvia da solo, senza preavviso, a metà
+  # sessione (la riga vuota "ExecStart=" azzera quella ereditata dalla base).
+  cat > /usr/lib/systemd/system/bootc-fetch-apply-updates.service.d/20-campios-stage-only.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/bootc update --quiet
+EOF
+
+  # Dopo ogni run del service, calcola/azzera il flag "update pronto".
   cat > /usr/lib/systemd/system/bootc-fetch-apply-updates.service.d/10-campios-flag.conf <<'EOF'
 [Service]
 ExecStartPost=/usr/libexec/campios-update-flag
