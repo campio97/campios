@@ -18,7 +18,7 @@ Source comments and git commit messages are written in **Italian** — match tha
 |---|---|
 | KDE Connect (firewall ports + DMS plugin) | `setup-kdeconnect.sh` |
 | greetd display manager | `setup-greetd.sh` |
-| Default user session — DMS + niri, new *and* existing users | `setup-user-configs.sh` |
+| Default user session — DMS + niri + kitty, new *and* existing users | `setup-user-configs.sh` |
 | Plymouth boot splash (theme + kargs) | `setup-plymouth.sh` |
 | Default Flatpaks (first-boot installer + service) | `setup-flatpaks.sh` |
 | Auto-updates (bootc background timer + per-login notification) | `setup-updates.sh` |
@@ -26,11 +26,11 @@ Source comments and git commit messages are written in **Italian** — match tha
 | Secure Boot signing / MOK enroll helper | `sign-secureboot.sh`, `install-mok-enroll-script.sh` |
 | initramfs regeneration (runs *after* signing) | `regenerate-initramfs.sh` |
 
-To change one subsystem, edit its script. To change *ordering* or add a new subsystem, edit `build.sh`. Inline glue that stays in `build.sh` on purpose: the dnf package install, the DMS COPR install, fish-as-default-shell, `policy.json`, the podman socket, `waybar` removal, the default-browser `mimeapps.list` install + defensive Firefox RPM removal, glib schemas, and cleanup.
+To change one subsystem, edit its script. To change *ordering* or add a new subsystem, edit `build.sh`. Inline glue that stays in `build.sh` on purpose: the dnf package install, the version-pinned `nvidia-driver-cuda` install, the DMS COPR install, fish-as-default-shell, `policy.json`, the podman socket, `waybar` removal, the default-browser `mimeapps.list` install + defensive Firefox RPM removal, glib schemas, and cleanup.
 
 Files under `build_files/` are copied into the build context (stage `ctx`) and referenced as `/ctx/...` (so a script reads e.g. `/ctx/dot_config/niri/config.kdl`). Scripts invoked during the build must be executable — commit them as mode `755`. New extracted scripts follow the existing style: `#!/usr/bin/env bash`, `set -euo pipefail`, and an `echo "=== CampiOS: … ==="` banner (no `set -x`).
 
-**Package lists are data, not code.** Plain DNF packages live in `build_files/packages/install.txt` (one per line, `#` comments), installed by a single generic loop in `build.sh` — add or remove a normal package *there*, not in `build.sh`. Flatpaks follow the same data-driven pattern (applied at first boot) via `build_files/flatpaks/{default,remove}-apps.txt`. Only genuinely special installs stay inline in `build.sh`: the DMS desktop group (needs the `avengemedia/dms` COPR repo + `--allowerasing`) and the post-DMS `waybar` removal. **The repo's factoring rule:** pull out list-like **data** (package/flatpak lists), **runtime-only** operations, and **complex, independently-testable** subsystems; keep order-sensitive, one-off glue inline and linear in `build.sh`.
+**Package lists are data, not code.** Plain DNF packages live in `build_files/packages/install.txt` (one per line, `#` comments), installed by a single generic loop in `build.sh` — add or remove a normal package *there*, not in `build.sh`. Flatpaks follow the same data-driven pattern (applied at first boot) via `build_files/flatpaks/{default,remove}-apps.txt`. Only genuinely special installs stay inline in `build.sh`: the DMS desktop group (needs the `avengemedia/dms` COPR repo + `--allowerasing`), the post-DMS `waybar` removal, and `nvidia-driver-cuda` (provides `nvidia-smi` for GPU temps in DMS; must be version-pinned to the base's `nvidia-driver` — the negativo17 repo only keeps the latest version, so an unpinned install can drag the NVIDIA userspace ahead of the base's kernel modules and break the GPU; if the pinned version is gone from the repo the build warns and continues without it). **The repo's factoring rule:** pull out list-like **data** (package/flatpak lists), **runtime-only** operations, and **complex, independently-testable** subsystems; keep order-sensitive, one-off glue inline and linear in `build.sh`.
 
 ## Common commands
 
@@ -68,7 +68,7 @@ Image name/tag are overridable via env: `IMAGE_NAME` (default `campios`), `DEFAU
 ### Immutable-OS config model
 `/usr` is read-only at runtime, so user-facing defaults are applied two ways and **both must be kept in sync**:
 - **New users:** seed files in `/etc/skel` (niri config + the per-user `dms.service` symlink).
-- **Existing users:** reconciled at boot by `campios-sync-user-configs.service` → `/usr/libexec/campios-sync-user-configs`, which sets the login shell to fish, symlinks `~/.config/niri/config.kdl` to the managed `/usr/share/campios/niri/config.kdl` (backing up any real file), and enables the DankKDEConnect plugin via a **non-destructive `jq` merge** (never clobbers a user's explicit choice).
+- **Existing users:** reconciled at boot by `campios-sync-user-configs.service` → `/usr/libexec/campios-sync-user-configs`, which sets the login shell to fish, symlinks `~/.config/niri/config.kdl` to the managed `/usr/share/campios/niri/config.kdl` (backing up any real file), symlinks `~/.config/kitty/kitty.conf` to `/usr/share/campios/kitty/kitty.conf` **only if the user has no kitty config at all** (a real user file is never touched), and enables the DankKDEConnect plugin via a **non-destructive `jq` merge** (never clobbers a user's explicit choice).
 
 Anything that must not be baked into read-only `/usr` lives in the **mutable home dir**: e.g. `distrobox` ships in the image, but the dev containers themselves are created by the *user* (the image does not auto-create any box) and live in their rootless podman storage — so a dev toolchain can be installed/updated without rebuilding the image.
 

@@ -35,6 +35,28 @@ mapfile -t CAMPIOS_PACKAGES < <(
 $DNF install -y "${CAMPIOS_PACKAGES[@]}"
 
 # ==========================================================
+# nvidia-smi (nvidia-driver-cuda) — pinnato alla versione della base
+# ==========================================================
+# Caso speciale (resta inline, NON in install.txt): la base spedisce il driver
+# NVIDIA (packaging negativo17) senza il sottopacchetto nvidia-driver-cuda, che
+# contiene /usr/bin/nvidia-smi — necessario a dgop/DMS per la temperatura delle
+# GPU NVIDIA (il driver proprietario non espone sensori hwmon). Il pacchetto
+# esige nvidia-driver alla STESSA versione, e il repo negativo17 tiene solo
+# l'ultima: un install secco aggiornerebbe lo userspace NVIDIA lasciando i
+# moduli kernel della base a una versione diversa -> GPU rotta al boot.
+# Quindi: versione agganciata a quella della base; se il repo non la offre più
+# (base più vecchia del repo) solo un warning — nvidia-smi entrerà da solo
+# appena rakuos ripubblica la base allineata.
+if rpm -q nvidia-driver >/dev/null 2>&1; then
+  NVIDIA_DRIVER_EVR="$(rpm -q --qf '%|EPOCH?{%{EPOCH}:}:{}|%{VERSION}-%{RELEASE}' nvidia-driver)"
+  if ! $DNF install -y "nvidia-driver-cuda-${NVIDIA_DRIVER_EVR}"; then
+    echo "=== CampiOS: WARNING: nvidia-driver-cuda-${NVIDIA_DRIVER_EVR} non nel repo (base disallineata?): questa build resta senza nvidia-smi ==="
+  fi
+else
+  echo "=== CampiOS: WARNING: nvidia-driver assente nella base, salto nvidia-driver-cuda (nvidia-smi) ==="
+fi
+
+# ==========================================================
 # Shell di default: fish
 # ==========================================================
 # I nuovi utenti creati con useradd nascono con fish come login shell.

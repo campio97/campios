@@ -22,7 +22,6 @@ lxpolkit
 iotop
 sysstat
 fish
-nvidia-driver-cuda
 
 # --- Secure Boot: firma/verifica di kernel e moduli (usati da sign-secureboot.sh) ---
 sbsigntools

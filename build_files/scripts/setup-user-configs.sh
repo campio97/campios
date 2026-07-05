@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== CampiOS: setup user session configs (DMS + niri) ==="
+echo "=== CampiOS: setup user session configs (DMS + niri + kitty) ==="
 
 # Modello config OS-immutabile: i default per i NUOVI utenti vivono in /etc/skel,
 # mentre gli utenti GIÀ esistenti vengono riconciliati al boot da
@@ -20,6 +20,14 @@ cp -rf /ctx/dot_config/niri/config.kdl /etc/skel/.config/niri/
 # --- niri: config gestita + reconciliation per gli utenti ESISTENTI ---
 install -d /usr/share/campios/niri
 install -m 0644 /ctx/dot_config/niri/config.kdl /usr/share/campios/niri/config.kdl
+
+# --- kitty: config di default per i nuovi utenti via /etc/skel ---
+mkdir -p /etc/skel/.config/kitty/
+cp -rf /ctx/dot_config/kitty/kitty.conf /etc/skel/.config/kitty/
+
+# --- kitty: config gestita per gli utenti ESISTENTI (via sync al boot) ---
+install -d /usr/share/campios/kitty
+install -m 0644 /ctx/dot_config/kitty/kitty.conf /usr/share/campios/kitty/kitty.conf
 
 install -d /usr/libexec
 cat > /usr/libexec/campios-sync-user-configs <<'EOF'
@@ -63,6 +71,17 @@ for home in /home/*; do
       fi
     fi
     rm -f "$tmp"
+  fi
+
+  # --- kitty: default solo se l'utente non ha già una config propria ---
+  # Symlink alla config gestita, così gli aggiornamenti dell'immagine si
+  # propagano; un file reale creato dall'utente non viene MAI toccato.
+  kitty_dir="$home/.config/kitty"
+  kitty_target="$kitty_dir/kitty.conf"
+  if [ ! -e "$kitty_target" ] && [ ! -L "$kitty_target" ]; then
+    install -d -o "$user" -g "$user" "$kitty_dir"
+    ln -s /usr/share/campios/kitty/kitty.conf "$kitty_target"
+    chown -h "$user:$user" "$kitty_target"
   fi
 
   target_dir="$home/.config/niri"
