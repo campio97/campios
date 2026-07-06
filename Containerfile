@@ -3,7 +3,11 @@ FROM scratch AS ctx
 COPY build_files /
 
 # Base Image
-FROM ghcr.io/rakuos/rakuos-base-nvidia:latest
+# rakuos ha migrato le immagini da ghcr.io -> GitLab -> quay.io (merge con Origami
+# Linux, release 44 del 2026-06-02). La vecchia ghcr.io/rakuos/rakuos-base-nvidia
+# e' ferma a Fedora 43 / nvidia 595 (ultimo tag 2026-04-19); quay.io e' ricostruita
+# ogni giorno (Fedora 44 / nvidia 610). quay.io e' gia' fidata in policy.json.
+FROM quay.io/rakuos/rakuos-base-nvidia:latest
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
@@ -36,8 +40,8 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh
 
-# bootc-image-builder non conosce "rakuos-43".
-# Lo dichiariamo come Fedora 43 derivative per permettere la generazione ISO/QCOW2.
+# bootc-image-builder non conosce l'ID "rakuos".
+# Lo dichiariamo come Fedora derivative per permettere la generazione ISO/QCOW2.
 RUN sed -i 's/^ID=.*/ID=fedora/' /etc/os-release && \
     sed -i 's/^NAME=.*/NAME="CampiOS"/' /etc/os-release && \
     sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="CampiOS"/' /etc/os-release && \
