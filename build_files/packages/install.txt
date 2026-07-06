@@ -42,6 +42,14 @@ kdeconnectd
 fuse-sshfs
 dolphin
 
+# --- Bluetooth ---
+# La base F43 (ghcr.io/rakuos) spediva bluez; la base F44 (quay.io) NO — spedisce
+# solo bluez-libs. Senza bluez mancano bluetoothd/bluetooth.service/bluetoothctl,
+# quindi l'applet BT di DMS non ha con chi parlare (hci0 c'è ma nessun daemon).
+# bluez-tools: CLI di pairing/diagnostica (utile per il workaround MT7922 sotto).
+bluez
+bluez-tools
+
 # --- Plymouth (boot splash CampiOS) ---
 plymouth
 plymouth-plugin-script

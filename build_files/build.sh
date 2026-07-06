@@ -148,6 +148,10 @@ cat > /usr/lib/bootc/kargs.d/15-mt7922-bt.toml <<'EOF'
 kargs = ["usbcore.autosuspend=-1"]
 EOF
 
+# bluez ora è installato da install.txt (la base F44 non lo fornisce più): il
+# preset non è garantito, quindi abilitiamo esplicitamente il daemon al boot.
+systemctl enable bluetooth.service
+
 # ==========================================================
 # Default Flatpaks (installer + service, eseguiti al primo boot)
 # ==========================================================
