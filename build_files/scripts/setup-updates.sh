@@ -125,12 +125,19 @@ exit 0
 EOF
 chmod +x /usr/libexec/campios-notify-update
 
-# --- Service utente: parte ad ogni login, dopo che DMS è su ---
+# --- Service utente: parte ad ogni login, dopo graphical-session.target ---
+# NB: NON usare "After=dms.service". dms.service è a sua volta
+# "After=graphical-session.target" e questo unit è "WantedBy=graphical-session.target":
+# ordinarlo dopo dms.service chiude un ciclo di ordinamento e systemd, per
+# romperlo, scarta un job a caso — spesso proprio dms.service, lasciando niri
+# senza shell (desktop "non parte"). Ordiniamo dopo graphical-session.target come
+# fa dms.service; l'helper riprova notify-send finché il demone di notifiche di
+# DMS non è pronto, quindi non serve dipendere esplicitamente da dms.service.
 cat > /usr/lib/systemd/user/campios-notify-update.service <<'EOF'
 [Unit]
 Description=CampiOS: notifica se è pronto un aggiornamento di sistema
-After=dms.service
-Wants=dms.service
+After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=oneshot
