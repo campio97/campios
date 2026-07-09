@@ -23,6 +23,17 @@ iotop
 sysstat
 fish
 
+# --- Keyring: sblocco automatico del login keyring ---
+# Su F44 gnome-keyring è stato splittato: il modulo PAM (pam_gnome_keyring.so)
+# vive ora nel sottopacchetto 'gnome-keyring-pam', che gnome-keyring NON
+# raccomanda → la base installa solo il daemon, non il modulo. Lo stack PAM di
+# greetd contiene già le righe "-optional pam_gnome_keyring.so" (auth + session),
+# ma il prefisso '-' le salta in silenzio se il modulo manca: il login keyring
+# non viene sbloccato al login e al primo Flatpak esce il popup "Unlock Login
+# Keyring". Installandolo, le righe già presenti scattano e il keyring si sblocca
+# con la password di login. (Presuppone keyring password == password di login.)
+gnome-keyring-pam
+
 # --- Secure Boot: firma/verifica di kernel e moduli (usati da sign-secureboot.sh) ---
 sbsigntools
 pesign
