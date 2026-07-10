@@ -99,6 +99,12 @@ jobs:
           printf '%s' '${{ secrets.CAMPIOS_MOK_KEY_B64 }}' | base64 -d > /tmp/campios-secureboot/campios-mok.key
           chmod 600 /tmp/campios-secureboot/campios-mok.key
 
+      # La CDN di quay.io ogni tanto tronca il download di un layer ("unexpected EOF"),
+      # e buildah non ritenta da solo: la build muore prima ancora di leggere il Containerfile.
+      # Scarichiamo l'immagine base in anticipo, con retry, nello stesso storage che usa buildah.
+      - name: Pre-pull immagine base
+        run: podman pull --retry 5 --retry-delay 10s quay.io/rakuos/rakuos-base-nvidia:latest
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
