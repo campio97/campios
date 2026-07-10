@@ -102,8 +102,18 @@ jobs:
       # La CDN di quay.io ogni tanto tronca il download di un layer ("unexpected EOF"),
       # e buildah non ritenta da solo: la build muore prima ancora di leggere il Containerfile.
       # Scarichiamo l'immagine base in anticipo, con retry, nello stesso storage che usa buildah.
+      # Niente `podman pull --retry`: il podman dei runner non ha quel flag.
       - name: Pre-pull immagine base
-        run: podman pull --retry 5 --retry-delay 10s quay.io/rakuos/rakuos-base-nvidia:latest
+        run: |
+          for tentativo in 1 2 3 4 5; do
+            if podman pull quay.io/rakuos/rakuos-base-nvidia:latest; then
+              exit 0
+            fi
+            echo "::warning::pull fallito (tentativo ${tentativo}/5), ritento tra 15s"
+            sleep 15
+          done
+          echo "::error::impossibile scaricare l'immagine base dopo 5 tentativi"
+          exit 1
 
       - name: Build Image
         id: build_image
