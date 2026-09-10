@@ -112,6 +112,14 @@ systemctl enable podman.socket
 $DNF -y remove waybar || true
 
 # ==========================================================
+# GPU nei container (spec CDI NVIDIA)
+# ==========================================================
+# Installa la unit che genera lo spec CDI a ogni boot: non si puo' fare qui
+# (nel container di build non ci sono i /dev/nvidia* da enumerare). Dettagli
+# nello script.
+/ctx/scripts/setup-nvidia-cdi.sh
+
+# ==========================================================
 # Plymouth CampiOS boot logo (tema + kargs; initramfs più sotto)
 # ==========================================================
 /ctx/scripts/setup-plymouth.sh

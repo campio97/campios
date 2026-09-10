@@ -23,6 +23,7 @@ Source comments and git commit messages are written in **Italian** — match tha
 | Default Flatpaks (first-boot installer + service) | `setup-flatpaks.sh` |
 | Auto-updates (bootc background timer + per-login notification) | `setup-updates.sh` |
 | Dual boot — os-prober (detect Windows/other OS in the GRUB menu) | `setup-osprober.sh` |
+| GPU in containers — NVIDIA CDI spec generated at each boot | `setup-nvidia-cdi.sh` |
 | Secure Boot signing / MOK enroll helper | `sign-secureboot.sh`, `install-mok-enroll-script.sh` |
 | initramfs regeneration (runs *after* signing) | `regenerate-initramfs.sh` |
 
@@ -84,6 +85,13 @@ Detecting Windows (or any OS on another disk) **cannot happen at build time**: t
 - `os-prober` is installed (data: `packages/install.txt`) and explicitly **re-enabled** in `/etc/default/grub` (`GRUB_DISABLE_OS_PROBER=false`); Fedora deprecated and disables it by default, so without this `grub2-mkconfig` adds nothing.
 - `/usr/bin/campios-regenerate-grub` remounts `/boot`(`/efi`) rw, runs `grub2-mkconfig -o /etc/grub2-efi.cfg` (UEFI) or `/etc/grub2.cfg` (BIOS) — the Fedora symlinks to the live `grub.cfg`, same recipe as ublue/Bazzite's `regenerate-grub` — then remounts ro. Re-elevates with sudo if run as non-root.
 - `campios-detect-os.service` (oneshot, `After=multi-user.target`, guarded by a persistent stamp `/var/lib/campios/os-detected.stamp`) runs the helper **once** on first boot so Windows appears automatically after the next reboot, without sitting on the boot-critical path. To re-scan later (e.g. a newly added disk): `sudo campios-regenerate-grub`. We deliberately do *not* regenerate GRUB on every boot — os-prober mounting all partitions is fragile (it can hang on a corrupted FS), which is why ublue keeps it manual too.
+
+### GPU in containers — CDI (`setup-nvidia-cdi.sh`)
+`nvidia-container-toolkit` (repo `terra-nvidia`, already present in the base via `terra-release-nvidia`) is installed as plain data in `packages/install.txt`, but it only provides `nvidia-ctk` — **the Terra package ships neither the upstream `nvidia-cdi-refresh.{service,path}` units nor an actual CDI spec** (`/etc/cdi/nvidia.yaml` is a `%ghost`: the path is reserved, the file is never generated). So CampiOS generates the spec itself.
+
+Like os-prober, this **cannot happen at build time**: `nvidia-ctk cdi generate` enumerates `/dev/nvidia*`, which don't exist in the build container. Worse, a CDI spec is tied to the *exact* driver version (library paths are versioned), and on bootc the driver ships with the image — a spec frozen at build time would go stale on the first `bootc upgrade` that brings a newer base, silently hiding the GPU from every container.
+
+`campios-nvidia-cdi.service` (oneshot, `WantedBy=multi-user.target`, guarded by `ConditionPathExistsGlob=/dev/nvidia[0-9]*` so a machine without the GPU just skips it) therefore regenerates the spec on **every boot**, writing to `/run/cdi/nvidia.yaml`. podman scans both `/etc/cdi` and `/run/cdi`; `/run` is tmpfs, so the spec is always rebuilt against the running driver and no stale file can survive an update. Consumers — including **rootless** podman — then use `podman run --device nvidia.com/gpu=all …`; `--gpus` is Docker syntax and does nothing here.
 
 ### Secure Boot (the most fragile part — change carefully)
 - The **public** MOK cert is committed (`build_files/secureboot/campios-mok.{der,pem}`). The **private key is never committed**: it's a build secret `campios_mok_key`, sourced in CI from the GitHub secret `CAMPIOS_MOK_KEY_B64` (base64-encoded).
