@@ -23,15 +23,6 @@ iotop
 sysstat
 fish
 
-# --- GPU nei container: CDI per podman ---
-# Fornisce nvidia-ctk. Sta nel repo terra-nvidia, gia' presente nella base
-# (terra-release-nvidia), quindi nessun repo aggiuntivo da configurare.
-# Attenzione: il pacchetto Terra NON spedisce le unit nvidia-cdi-refresh.*
-# dell'upstream NVIDIA, e /etc/cdi/nvidia.yaml e' un %ghost (path prenotato,
-# file mai generato). La generazione dello spec CDI e' quindi a carico nostro:
-# scripts/setup-nvidia-cdi.sh installa campios-nvidia-cdi.service.
-nvidia-container-toolkit
-
 # --- Keyring: sblocco automatico del login keyring ---
 # Su F44 gnome-keyring è stato splittato: il modulo PAM (pam_gnome_keyring.so)
 # vive ora nel sottopacchetto 'gnome-keyring-pam', che gnome-keyring NON

@@ -112,12 +112,34 @@ systemctl enable podman.socket
 $DNF -y remove waybar || true
 
 # ==========================================================
-# GPU nei container (spec CDI NVIDIA)
+# GPU nei container (nvidia-container-toolkit + spec CDI)
 # ==========================================================
-# Installa la unit che genera lo spec CDI a ogni boot: non si puo' fare qui
-# (nel container di build non ci sono i /dev/nvidia* da enumerare). Dettagli
-# nello script.
-/ctx/scripts/setup-nvidia-cdi.sh
+# Caso speciale, NON in install.txt, per due motivi.
+#
+# 1. Serve prima abilitare un repo. nvidia-container-toolkit sta solo in
+#    terra-nvidia, che la base NON configura: spedisce terra-release (repo
+#    'terra') ma non terra-release-nvidia, perche' il driver NVIDIA se lo cuoce
+#    dentro a build-time e poi il repo non le serve piu'. Lo aggiungiamo qui e
+#    lo RIMUOVIAMO subito dopo: cosi' l'immagine finale non si porta dietro un
+#    repo che offre driver NVIDIA piu' recenti di quelli della base — la stessa
+#    deriva userspace/moduli-kernel gia' documentata sopra per nvidia-driver-cuda.
+#
+# 2. Deve restare fuori dalla transazione generica di install.txt, che e' UNA
+#    sola transazione dnf per tutti i pacchetti CampiOS: li' dentro un repo di
+#    terze parti indisponibile non farebbe fallire solo questo pacchetto, ma
+#    l'installazione dell'intera immagine.
+#
+# Non fatale: senza toolkit l'immagine resta valida e avviabile, semplicemente i
+# container non vedranno la GPU.
+if $DNF install -y terra-release-nvidia && $DNF install -y nvidia-container-toolkit; then
+  $DNF -y remove terra-release-nvidia || true
+  # Installa la unit che genera lo spec CDI a ogni boot: non si puo' fare qui
+  # (nel container di build non ci sono i /dev/nvidia* da enumerare e lo spec e'
+  # legato alla versione esatta del driver). Dettagli nello script.
+  /ctx/scripts/setup-nvidia-cdi.sh
+else
+  echo "=== CampiOS: WARNING: nvidia-container-toolkit non installabile (repo terra-nvidia irraggiungibile?): questa build resta senza GPU nei container ==="
+fi
 
 # ==========================================================
 # Plymouth CampiOS boot logo (tema + kargs; initramfs più sotto)

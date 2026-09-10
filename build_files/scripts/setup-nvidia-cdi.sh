@@ -3,7 +3,8 @@ set -euo pipefail
 
 echo "=== CampiOS: setup CDI NVIDIA per i container ==="
 
-# Il pacchetto nvidia-container-toolkit e' installato da packages/install.txt.
+# Il pacchetto nvidia-container-toolkit e' installato da build.sh (caso speciale:
+# richiede di abilitare al volo il repo terra-nvidia, assente nella base).
 # Qui: la unit che genera lo spec CDI, cioe' il file che descrive a podman quali
 # device e librerie del driver montare dentro al container per dargli la GPU
 # (`podman run --device nvidia.com/gpu=all ...`, anche rootless).
